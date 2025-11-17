@@ -122,7 +122,7 @@ const accountService = {
 				eq(account.userId, userId),
 				eq(account.isDel, isDel.NORMAL),
 				gt(account.accountId, accountId)))
-			.orderBy(asc(account.accountId))
+			.orderBy(desc(account.accountId))
 			.limit(size)
 			.all();
 	},
