@@ -26,6 +26,7 @@ import {useEmailStore} from "@/store/email.js";
 import {useSettingStore} from "@/store/setting.js";
 import emailScroll from "@/components/email-scroll/index.vue"
 import {emailList, emailDelete, emailLatest} from "@/request/email.js";
+import {accountList} from "@/request/account.js";
 import {starAdd, starCancel} from "@/request/star.js";
 import {defineOptions, onMounted, reactive, ref, watch} from "vue";
 import {sleep} from "@/utils/time-utils.js";
@@ -105,8 +106,8 @@ function cancelStar(email) {
   emailStore.starScroll?.deleteEmail([email.emailId])
 }
 
-function getEmailList(emailId, size) {
-  if accountStore.currentAccountId == 0 {
+async function getEmailList(emailId, size) {
+  if (accountStore.currentAccountId === 0) {
     const accountListData = await accountList(0, 1);
     const firstAccountId = accountListData.length > 0 ? accountListData[0].accountId : accountStore.currentAccountId;
     accountStore.currentAccountId = firstAccountId
