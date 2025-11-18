@@ -107,7 +107,7 @@ function cancelStar(email) {
 }
 
 async function getEmailList(emailId, size) {
-  if (accountStore.currentAccountId === 0) {
+  if (accountStore.currentAccountId === 0 || scroll.value.firstLoad) {
     const accountListData = await accountList(0, 1);
     const firstAccountId = accountListData.length > 0 ? accountListData[0].accountId : accountStore.currentAccountId;
     accountStore.currentAccountId = firstAccountId
