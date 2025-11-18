@@ -106,6 +106,12 @@ function cancelStar(email) {
 }
 
 function getEmailList(emailId, size) {
+  if accountStore.currentAccountId == 0 {
+    const accountListData = await accountList(0, 1);
+    const firstAccountId = accountListData.length > 0 ? accountListData[0].accountId : accountStore.currentAccountId;
+    accountStore.currentAccountId = firstAccountId
+  }
+  
   return emailList(accountStore.currentAccountId, emailId, params.timeSort, size, 0)
 }
 
