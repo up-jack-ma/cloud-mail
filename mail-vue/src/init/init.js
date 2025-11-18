@@ -45,6 +45,9 @@ export async function init() {
             routers.forEach(routerData => {
                 router.addRoute('layout', routerData);
             });
+            const accountListData = await accountList(0, 1);
+            const firstAccountId = accountListData.length > 0 ? accountListData[0].accountId : accountStore.currentAccountId;
+            accountStore.currentAccountId = firstAccountId
         }
 
     } else {
