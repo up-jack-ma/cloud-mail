@@ -6,6 +6,7 @@ import {permsToRouter} from "@/perm/perm.js";
 import router from "@/router";
 import {websiteConfig} from "@/request/setting.js";
 import i18n from "@/i18n/index.js";
+import {accountList} from "@/request/account.js";
 
 export async function init() {
     document.title = '\u200B'
