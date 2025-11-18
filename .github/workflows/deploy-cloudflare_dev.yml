@@ -1,4 +1,4 @@
-name: 🚀 Deploy cloud-mail to Cloudflare Workers
+name: 🚀 Deploy Dev cloud-mail to Cloudflare Workers
 
 on:
   push:
@@ -134,7 +134,7 @@ jobs:
           fi
 
       - name: Delete workflow runs
-        uses: GitRML/delete-workflow-runs@main
+        uses: GitRML/delete-workflow-runs@dev
         continue-on-error: true
         with:
           retain_days: '3'
