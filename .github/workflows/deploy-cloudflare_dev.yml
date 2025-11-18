@@ -134,7 +134,7 @@ jobs:
           fi
 
       - name: Delete workflow runs
-        uses: GitRML/delete-workflow-runs@dev
+        uses: GitRML/delete-workflow-runs@main
         continue-on-error: true
         with:
           retain_days: '3'
