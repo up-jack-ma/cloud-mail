@@ -5,7 +5,7 @@ import userService from './user-service';
 import emailService from './email-service';
 import orm from '../entity/orm';
 import account from '../entity/account';
-import { and, asc, eq, gt, lt, desc, inArray, count, sql, ne } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, count, sql, ne } from 'drizzle-orm';
 import { isDel, settingConst } from '../const/entity-const';
 import settingService from './setting-service';
 import turnstileService from './turnstile-service';
@@ -121,9 +121,8 @@ const accountService = {
 			and(
 				eq(account.userId, userId),
 				eq(account.isDel, isDel.NORMAL),
-				size == 1 ? gt(account.accountId, accountId):lt(account.accountId, accountId)
-			))
-			.orderBy(desc(account.accountId))
+				gt(account.accountId, accountId)))
+			.orderBy(asc(account.accountId))
 			.limit(size)
 			.all();
 	},
