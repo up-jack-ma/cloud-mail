@@ -121,7 +121,8 @@ const accountService = {
 			and(
 				eq(account.userId, userId),
 				eq(account.isDel, isDel.NORMAL),
-				lt(account.accountId, accountId)))
+				size == 1 ? gt(account.accountId, accountId):lt(account.accountId, accountId)
+			))
 			.orderBy(desc(account.accountId))
 			.limit(size)
 			.all();
