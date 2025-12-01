@@ -352,6 +352,9 @@ function getAccountList() {
     }
     if (accounts.length === 0) {
       accountStore.currentAccount = list[0].accountId
+    } else {
+      // 后续加载 → 选新加载列表的最后一条
+      accountStore.currentAccount = list.at(-1).accountId
     }
     queryParams.accountId = list.at(-1).accountId
     accounts.push(...list)
@@ -425,7 +428,12 @@ function submit() {
     addLoading.value = false
     showAdd.value = false
     addForm.email = ''
-    accounts.push(account)
+    //accounts.push(account)
+    // 1. 新增的 account 放到最顶端
+    accounts.unshift(account)
+
+    // 2. 设置该 account 为当前选中
+    accountStore.currentAccount = account.accountId
     verifyToken = ''
     settingStore.settings.addVerifyOpen = account.addVerifyOpen
     ElMessage({
