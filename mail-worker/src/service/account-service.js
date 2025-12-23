@@ -5,13 +5,8 @@ import userService from './user-service';
 import emailService from './email-service';
 import orm from '../entity/orm';
 import account from '../entity/account';
-<<<<<<< HEAD
-import { and, asc, eq, gt, inArray, count, sql, ne } from 'drizzle-orm';
-import {accountConst, isDel, settingConst} from '../const/entity-const';
-=======
 import { and, asc, eq, gt, lt, desc, inArray, count, sql, ne } from 'drizzle-orm';
-import { isDel, settingConst } from '../const/entity-const';
->>>>>>> dev-desc
+import {accountConst, isDel, settingConst} from '../const/entity-const';
 import settingService from './setting-service';
 import turnstileService from './turnstile-service';
 import roleService from './role-service';

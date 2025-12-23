@@ -377,14 +377,10 @@ function getAccountList() {
       noLoading.value = true
     }
     if (accounts.length === 0) {
-<<<<<<< HEAD
-      accountStore.currentAccount = list[0]
-=======
       accountStore.currentAccount = list[0].accountId
     } else {
       // 后续加载 → 选新加载列表的最后一条
       accountStore.currentAccount = list.at(-1).accountId
->>>>>>> dev-desc
     }
     queryParams.accountId = list.at(-1).accountId
     accounts.push(...list)
