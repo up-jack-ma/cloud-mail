@@ -3,6 +3,7 @@ import {useSettingStore} from "@/store/setting.js";
 import {useAccountStore} from "@/store/account.js";
 import {loginUserInfo} from "@/request/my.js";
 import {permsToRouter} from "@/perm/perm.js";
+import {accountList} from "@/request/account.js";
 import router from "@/router";
 import {websiteConfig} from "@/request/setting.js";
 import i18n from "@/i18n/index.js";
@@ -46,6 +47,9 @@ export async function init() {
             routers.forEach(routerData => {
                 router.addRoute('layout', routerData);
             });
+            const accountListData = await accountList(0, 1);
+            const firstAccountId = accountListData.length > 0 ? accountListData[0].accountId : accountStore.currentAccountId;
+            accountStore.currentAccountId = firstAccountId
         }
 
     } else {
