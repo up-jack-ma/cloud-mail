@@ -186,7 +186,10 @@ if (hasPerm('account:query')) {
 }
 
 watch(() => accountStore.changeUserAccountName, () => {
-  accounts[0].name = accountStore.changeUserAccountName
+  const userAccount = accounts.find(item => item.accountId === userStore.user.account.accountId)
+  if (userAccount) {
+    userAccount.name = accountStore.changeUserAccountName
+  }
 })
 
 watch(() => settingStore.domainList, (list) => {
@@ -362,7 +365,8 @@ function setAsTop(account, index) {
     })
 
     const [item] = accounts.splice(index, 1);
-    accounts.splice(1, 0, item);
+    item.sort = (accounts[0]?.sort ?? 0) + 1;
+    accounts.unshift(item);
 
   });
 }
@@ -411,8 +415,8 @@ function getAccountList() {
     if (list.length < queryParams.size) {
       noLoading.value = true
     }
-    if (accounts.length === 0) {
-      accountStore.currentAccount = list[0]
+    if (accounts.length === 0 && list.length > 0) {
+      changeAccount(list[0])
     }
 
     accounts.push(...list)
@@ -487,7 +491,9 @@ function submit() {
   accountAdd(addForm.email + addForm.suffix, verifyToken).then(account => {
     addLoading.value = false
     addForm.email = ''
-    accounts.push(account)
+    const topIndex = accounts.findIndex(item => item.sort === 0)
+    accounts.splice(topIndex === -1 ? accounts.length : topIndex, 0, account)
+    changeAccount(account)
     verifyToken = ''
     settingStore.settings.addVerifyOpen = account.addVerifyOpen
     ElMessage({
