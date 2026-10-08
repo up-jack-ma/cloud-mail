@@ -1,7 +1,8 @@
 import orm from '../entity/orm';
 import email from '../entity/email';
+import { emailListColumns, emailBriefColumns, EMAIL_LIST_TEXT_LEN } from '../lib/email-list-columns';
 import { attConst, emailConst, isDel, settingConst } from '../const/entity-const';
-import { and, desc, eq, gt, inArray, lt, count, asc, sql, ne, or, like, lte, gte } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, notInArray, lt, count, asc, sql, ne, or, like, lte, gte } from 'drizzle-orm';
 import { star } from '../entity/star';
 import settingService from './setting-service';
 import accountService from './account-service';
@@ -27,13 +28,33 @@ const emailService = {
 
 	async list(c, params, userId) {
 
-		let { emailId, type, accountId, size, timeSort, allReceive } = params;
+		let { emailId, type, accountId, size, timeSort, allReceive, full } = params;
 
 		size = Number(size);
+		type = Number(type);
 		emailId = Number(emailId) || 0;
 		timeSort = Number(timeSort);
 		accountId = Number(accountId);
 		allReceive = Number(allReceive);
+		full = Number(full);
+
+		if (isNaN(type)) {
+			type = 0;
+		}
+
+		if (isNaN(accountId)) {
+			throw new BizError(t('emptyAccountId'));
+		}
+
+		if (isNaN(size)) {
+			size = 10;
+		}
+
+		if (isNaN(full)) {
+			full = 1;
+		}
+
+		full = full === 1;
 
 		if (size > 50) {
 			size = 50;
@@ -46,10 +67,11 @@ const emailService = {
 
 		const filters = this.emailListFilters({ userId, accountId, type, allReceive, emailId, timeSort });
 		const countFilters = this.emailListFilters({ userId, accountId, type, allReceive, withCursor: false });
+		const columns = full ? emailListColumns : emailBriefColumns;
 
 		const query = orm(c)
 			.select({
-				...email,
+				...columns,
 				starId: star.starId
 			})
 			.from(email)
@@ -82,7 +104,11 @@ const emailService = {
 			.where(and(...countFilters))
 			.get();
 
-		const latestEmailQuery = orm(c).select().from(email).where(
+		const latestEmailQuery = orm(c).select({
+			emailId: email.emailId,
+			accountId: email.accountId,
+			userId: email.userId,
+		}).from(email).where(
 			and(
 				eq(email.userId, userId),
 				eq(email.type, type),
@@ -98,8 +124,11 @@ const emailService = {
 			isStar: item.starId != null ? 1 : 0
 		}));
 
-
-		await this.emailAddAtt(c, list);
+		if (full) {
+			await this.emailAddAtt(c, list);
+		} else {
+			this.applyListText(list);
+		}
 
 		if (!latestEmail) {
 			latestEmail = {
@@ -110,6 +139,20 @@ const emailService = {
 		}
 
 		return { list, total: totalRow.total, latestEmail };
+	},
+
+	toListText(item) {
+		const raw = emailUtils.formatText(item.text) || emailUtils.htmlToText(item.content);
+		return raw.replace(/\s+/g, ' ').trim().slice(0, EMAIL_LIST_TEXT_LEN);
+	},
+
+	applyListText(list) {
+		for (const item of list) {
+			item.listText = this.toListText(item);
+			delete item.text;
+			delete item.content;
+		}
+		return list;
 	},
 
 	emailListFilters({ userId, accountId, type, allReceive, emailId, timeSort, withCursor = true }) {
@@ -148,27 +191,25 @@ const emailService = {
 		}
 
 		if (userEmail) {
-			conditions.push(sql`${user.email} COLLATE NOCASE LIKE ${'%' + userEmail + '%'}`);
+			conditions.push(sql`${user.email} COLLATE NOCASE LIKE ${userEmail + '%'}`);
 		}
 
 		if (accountEmail) {
 			conditions.push(
 				or(
-					sql`${email.toEmail} COLLATE NOCASE LIKE ${'%' + accountEmail + '%'}`,
-					sql`${email.sendEmail} COLLATE NOCASE LIKE ${'%' + accountEmail + '%'}`,
+					sql`${email.toEmail} COLLATE NOCASE LIKE ${accountEmail + '%'}`,
+					sql`${email.sendEmail} COLLATE NOCASE LIKE ${accountEmail + '%'}`,
 				)
 			);
 		}
 
 		if (name) {
-			conditions.push(sql`${email.name} COLLATE NOCASE LIKE ${'%' + name + '%'}`);
+			conditions.push(sql`${email.name} COLLATE NOCASE LIKE ${name + '%'}`);
 		}
 
 		if (subject) {
-			conditions.push(sql`${email.subject} COLLATE NOCASE LIKE ${'%' + subject + '%'}`);
+			conditions.push(sql`${email.subject} COLLATE NOCASE LIKE ${subject + '%'}`);
 		}
-
-		conditions.push(ne(email.status, emailConst.status.SAVING));
 
 		if (withCursor && emailId) {
 			conditions.push(timeSort ? gt(email.emailId, emailId) : lt(email.emailId, emailId));
@@ -792,7 +833,7 @@ const emailService = {
 			allReceive = accountRow.allReceive;
 		}
 
-		let list = await orm(c).select({...email}).from(email)
+		const list = await orm(c).select({ ...emailListColumns }).from(email)
 			.innerJoin(
 				account,
 				eq(account.accountId, email.accountId)
@@ -810,7 +851,9 @@ const emailService = {
 			.limit(20);
 
 		await this.emailAddAtt(c, list);
-
+		for (const item of list) {
+			item.listText = this.toListText(item);
+		}
 		return list;
 	},
 
@@ -854,29 +897,49 @@ const emailService = {
 
 	async allList(c, params) {
 
-		let { emailId, size, name, subject, accountEmail, userEmail, type, timeSort } = params;
+		let { emailId, size, name, subject, accountEmail, userEmail, type, timeSort, full } = params;
 
 		size = Number(size);
-
 		emailId = Number(emailId) || 0;
 		timeSort = Number(timeSort);
+		full = Number(full);
+
+		if (type === undefined) {
+			type = 'receive';
+		}
+
+		if (isNaN(size)) {
+			size = 10;
+		}
 
 		if (size > 50) {
 			size = 50;
 		}
 
+		if (isNaN(full)) {
+			full = 1;
+		}
+
+		full = full === 1;
+
 		const filters = this.allEmailListFilters({ emailId, name, subject, accountEmail, userEmail, type, timeSort });
 		const countFilters = this.allEmailListFilters({ emailId, name, subject, accountEmail, userEmail, type, timeSort, withCursor: false });
+		const columns = full ? emailListColumns : emailBriefColumns;
 
-		const query = orm(c).select({ ...email, userEmail: user.email })
+		const query = orm(c).select({ ...columns, userEmail: user.email })
 			.from(email)
 			.leftJoin(user, eq(email.userId, user.userId))
 			.where(and(...filters));
 
-		const queryCount = orm(c).select({ total: count() })
-			.from(email)
-			.leftJoin(user, eq(email.userId, user.userId))
-			.where(and(...countFilters));
+		// count 不搜用户时无需 join user
+		const queryCount = userEmail
+			? orm(c).select({ total: count() })
+				.from(email)
+				.leftJoin(user, eq(email.userId, user.userId))
+				.where(and(...countFilters))
+			: orm(c).select({ total: count() })
+				.from(email)
+				.where(and(...countFilters));
 
 		if (timeSort) {
 			query.orderBy(asc(email.emailId));
@@ -886,16 +949,21 @@ const emailService = {
 
 		const listQuery = query.limit(size).all();
 		const totalQuery = queryCount.get();
-		const latestEmailQuery = orm(c).select().from(email)
-			.where(and(
-				eq(email.type, emailConst.type.RECEIVE),
-				ne(email.status, emailConst.status.SAVING)
-			))
+		const latestEmailQuery = orm(c).select({
+			emailId: email.emailId,
+			accountId: email.accountId,
+			userId: email.userId,
+		}).from(email)
+			.where(eq(email.type, emailConst.type.RECEIVE))
 			.orderBy(desc(email.emailId)).limit(1).get();
 
 		let [list, totalRow, latestEmail] = await Promise.all([listQuery, totalQuery, latestEmailQuery]);
 
-		await this.emailAddAtt(c, list);
+		if (full) {
+			await this.emailAddAtt(c, list);
+		} else {
+			this.applyListText(list);
+		}
 
 		if (!latestEmail) {
 			latestEmail = {
@@ -912,19 +980,20 @@ const emailService = {
 
 		const { emailId } = params;
 
-		let list = await orm(c).select({...email, userEmail: user.email}).from(email)
+		let list = await orm(c).select({ ...emailListColumns, userEmail: user.email }).from(email)
 			.leftJoin(user, eq(email.userId, user.userId))
 			.where(
 				and(
 					gt(email.emailId, emailId),
-					eq(email.type, emailConst.type.RECEIVE),
-					ne(email.status, emailConst.status.SAVING)
+					eq(email.type, emailConst.type.RECEIVE)
 				))
 			.orderBy(desc(email.emailId))
 			.limit(20);
 
 		await this.emailAddAtt(c, list);
-
+		for (const item of list) {
+			item.listText = this.toListText(item);
+		}
 		return list;
 	},
 
@@ -955,8 +1024,70 @@ const emailService = {
 	},
 
 	async completeReceiveAll(c) {
-		await c.env.db.prepare(`UPDATE email as e SET status = ${emailConst.status.RECEIVE} WHERE status = ${emailConst.status.SAVING} AND EXISTS (SELECT 1 FROM account WHERE account_id = e.account_id)`).run();
-		await c.env.db.prepare(`UPDATE email as e SET status = ${emailConst.status.NOONE} WHERE status = ${emailConst.status.SAVING} AND NOT EXISTS (SELECT 1 FROM account WHERE account_id = e.account_id)`).run();
+		// 用 EXISTS 走 status=6 部分索引 + account 主键；避免 IN (SELECT account_id FROM account) 触发全盘扫描
+		await c.env.db.prepare(
+			`UPDATE email
+			 SET status = ${emailConst.status.RECEIVE}
+			 WHERE status = ${emailConst.status.SAVING}
+			   AND EXISTS (SELECT 1 FROM account WHERE account.account_id = email.account_id)`
+		).run();
+		await c.env.db.prepare(
+			`UPDATE email
+			 SET status = ${emailConst.status.NOONE}
+			 WHERE status = ${emailConst.status.SAVING}`
+		).run();
+	},
+
+	async autoClean(c) {
+		const { autoCleanDays, autoCleanExclude } = await settingService.query(c);
+		const days = Number(autoCleanDays);
+
+		if (!days || days <= 0) {
+			return;
+		}
+
+		const cutoff = dayjs().subtract(days, 'day').format('YYYY-MM-DD HH:mm:ss');
+		const excludeEmails = String(autoCleanExclude || '')
+			.split(/[,，]/)
+			.map(item => item.trim())
+			.filter(Boolean);
+
+		let excludeUserIds = [];
+		if (excludeEmails.length) {
+			const rows = await orm(c)
+				.select({ userId: user.userId })
+				.from(user)
+				.where(sql`lower(${user.email}) IN (${sql.join(excludeEmails.map(email => sql`${email.toLowerCase()}`), sql`, `)})`)
+				.all();
+			excludeUserIds = rows.map(row => row.userId);
+		}
+
+		const batchSize = 95;
+
+		while (true) {
+			const conditions = [lt(email.createTime, cutoff)];
+			if (excludeUserIds.length) {
+				conditions.push(notInArray(email.userId, excludeUserIds));
+			}
+
+			const rows = await orm(c)
+				.select({ emailId: email.emailId })
+				.from(email)
+				.where(and(...conditions))
+				.limit(batchSize)
+				.all();
+
+			if (!rows.length) {
+				break;
+			}
+
+			const emailIds = rows.map(row => row.emailId);
+			await this.physicsDelete(c, { emailIds: emailIds.join(',') });
+
+			if (rows.length < batchSize) {
+				break;
+			}
+		}
 	},
 
 	async batchDelete(c, params) {
